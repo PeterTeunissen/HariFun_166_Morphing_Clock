@@ -7,8 +7,8 @@ const byte sD = 3;
 const byte sE = 4;
 const byte sF = 5;
 const byte sG = 6;
-const int segHeight = 6;
-const int segWidth = segHeight;
+//const int segHeight = 6;
+//const int segWidth = segHeight;
 const uint16_t height = 31;
 const uint16_t width = 63;
 
@@ -48,6 +48,28 @@ Digit::Digit(PxMATRIX* d, byte value, uint16_t xo, uint16_t yo, uint16_t color) 
 byte Digit::Value() {
   return _value;
 }
+
+void Digit::setSize(int sz) {
+  segWidth = sz;
+  segHeight = sz;
+}
+
+void Digit::setX(uint16_t x){
+  xOffset = x;
+}
+
+void Digit::setY(uint16_t y){
+  yOffset = y;
+}
+
+uint16_t Digit::getX() {
+  return xOffset;
+}
+
+uint16_t Digit::getY() {
+  return yOffset;
+}
+
 void Digit::drawPixel(uint16_t x, uint16_t y, uint16_t c)
 {
   _display->drawPixel(xOffset + x, height - (y + yOffset), c);
@@ -63,11 +85,20 @@ void Digit::drawFillRect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_
   _display->fillRect(xOffset + x, height - (y + yOffset), w,h, c);
 }
 
+void Digit::setColonLeft(bool b) {
+  colonLeft = b;  
+}
+
 void Digit::DrawColon(uint16_t c)
 {
   // Colon is drawn to the left of this digit
-  drawFillRect(-3, segHeight-1, 2,2, c);
-  drawFillRect(-3, segHeight+1+3, 2,2, c);
+  if (colonLeft) {
+    drawFillRect(-3, segHeight-1, 2, 2, c);
+    drawFillRect(-3, segHeight+1+3, 2, 2, c);
+  } else {
+    drawFillRect(+1 + segWidth + 2, segHeight-1, 2, 2, c);
+    drawFillRect(+1 + segWidth + 2, segHeight+1+3, 2, 2, c);    
+  }
 }
 
 void Digit::drawSeg(byte seg)

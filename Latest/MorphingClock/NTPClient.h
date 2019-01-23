@@ -33,7 +33,9 @@
     byte GetMinutes();
     byte GetSeconds();
     void PrintTime();
-    
+	  bool useMilitary();
+	  bool isAM();
+	
   private:
     PxMATRIX* _display;
     unsigned long sendNTPpacket(IPAddress& address);

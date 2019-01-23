@@ -8,6 +8,9 @@
 
 #define double_buffer
 #include <PxMatrix.h>
+#include "Digit.h"
+#include "NTPClient.h"
+#include "TinyFont.h"
 
 #ifdef ESP32
 
@@ -60,7 +63,6 @@ void IRAM_ATTR display_updater() {
 #endif
 
 //=== SEGMENTS ===
-#include "Digit.h"
 Digit digit0(&display, 0, 63 - 1 - 9*1, 8, display.color565(0, 0, 255));
 Digit digit1(&display, 0, 63 - 1 - 9*2, 8, display.color565(0, 0, 255));
 Digit digit2(&display, 0, 63 - 4 - 9*3, 8, display.color565(0, 0, 255));
@@ -68,19 +70,22 @@ Digit digit3(&display, 0, 63 - 4 - 9*4, 8, display.color565(0, 0, 255));
 Digit digit4(&display, 0, 63 - 7 - 9*5, 8, display.color565(0, 0, 255));
 Digit digit5(&display, 0, 63 - 7 - 9*6, 8, display.color565(0, 0, 255));
 
+uint16_t amColor = display.color565(61, 165, 43);
+uint16_t pmColor = display.color565(204, 58, 0);
+uint16_t colonColor = display.color565(0, 0, 255);
+  
 //=== CLOCK ===
-#include "NTPClient.h"
 NTPClient ntpClient;
 unsigned long prevEpoch;
 byte prevhh;
 byte prevmm;
 byte prevss;
 
-
 void setup() {
   Serial.begin(9600);
+  display.setDriverChip(FM6126A);
   display.begin(16);
-
+    
 #ifdef ESP8266
   display_ticker.attach(0.002, display_updater);
 #endif
@@ -94,17 +99,30 @@ void setup() {
 
   ntpClient.Setup(&display);
 
+  if (!ntpClient.useMilitary()) {
+    digit0.setSize(3);
+    digit0.setY(digit0.getY()+6);
+    digit0.setX(digit0.getX()-1);
+    digit1.setSize(3);
+    digit1.setX(digit1.getX()+2);
+    digit1.setY(digit1.getY()+6);
+  }
+  digit2.setColonLeft(false);
+  digit4.setColonLeft(false);
   display.fillScreen(display.color565(0, 0, 0));
-  digit1.DrawColon(display.color565(0, 0, 255));
-  digit3.DrawColon(display.color565(0, 0, 255));
+  digit2.DrawColon(colonColor);
+  digit4.DrawColon(colonColor);
 }
 
+bool isAM = true;
 
 void loop() {
   unsigned long epoch = ntpClient.GetCurrentTime();
   //Serial.print("GetCurrentTime returned epoch = ");
   //Serial.println(epoch);
-  if (epoch != 0) ntpClient.PrintTime();
+  if (epoch != 0) {
+    ntpClient.PrintTime();
+  }
 
   if (epoch != prevEpoch) {
     int hh = ntpClient.GetHours();
@@ -117,9 +135,31 @@ void loop() {
       digit3.Draw(mm / 10);
       digit4.Draw(hh % 10);
       digit5.Draw(hh / 10);
+
+      if (!ntpClient.useMilitary()) {
+        isAM = ntpClient.isAM();
+        if (isAM) {
+          TFDrawChar(&display,'A',63 - 1 + 3 - 9*2,19,amColor);
+          TFDrawChar(&display,'M',63 - 1 - 2 - 9*1,19,amColor);
+        } else {
+          TFDrawChar(&display,'P',63 - 1 + 3 - 9*2,19,pmColor);          
+          TFDrawChar(&display,'M',63 - 1 - 2 - 9*1,19,pmColor);
+        }
+      }
     }
     else
     {
+      if (!ntpClient.useMilitary() && (ntpClient.isAM()!=isAM)) {
+        isAM = ntpClient.isAM();
+        if (isAM) {
+          TFDrawChar(&display,'A',63 - 1 + 3 - 9*2,19,amColor);
+          TFDrawChar(&display,'M',63 - 1 - 2 - 9*1,19,amColor);
+        } else {
+          TFDrawChar(&display,'P',63 - 1 + 3 - 9*2,19,pmColor);          
+          TFDrawChar(&display,'M',63 - 1 - 2 - 9*1,19,pmColor);
+        }
+      }
+      
       // epoch changes every miliseconds, we only want to draw when digits actually change.
       if (ss!=prevss) { 
         int s0 = ss % 10;

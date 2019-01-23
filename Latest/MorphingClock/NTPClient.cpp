@@ -5,7 +5,6 @@
 char wifiManagerAPName[] = "MorphClk";
 char wifiManagerAPPassword[] = "HariFun";
 
-
 //== DOUBLE-RESET DETECTOR ==
 #include <DoubleResetDetector.h>
 #define DRD_TIMEOUT 10 // Second-reset must happen within 10 seconds of first reset to be considered a double-reset
@@ -23,7 +22,6 @@ void saveConfigCallback () {
   shouldSaveConfig = true;
 }
 
-
 //=== NTP CLIENT ===
 #include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
@@ -37,8 +35,8 @@ unsigned long lastEpoch; // We don't want to continually ask for epoch from time
 unsigned long lastEpochTimeStamp; // What was millis() when asked server for Epoch we are currently using?
 unsigned long nextEpochTimeStamp; // What was millis() when we asked server for the upcoming epoch
 unsigned long currentTime;
-char timezone[5] = "";
-char military[3] = ""; // 24 hour mode? Y/N
+char timezone[5] = "-5";
+char military[3] = "Y"; // 24 hour mode? Y/N
 
 const char* ntpServerName = "time.google.com"; // NTP google server
 IPAddress timeServerIP; // time.nist.gov NTP server address
@@ -53,9 +51,9 @@ void configModeCallback (WiFiManager *myWiFiManager) {
   Serial.println("Entered config mode");
   Serial.println(WiFi.softAPIP());
 
-  // You could indicate on your screen or by an LED you are in config mode here
+  // You could indicate on your screen or by a LED you are in config mode here
 
-  // We don't want the next time the boar resets to be considered a double reset
+  // We don't want the next time the board resets to be considered a double reset
   // so we remove the flag
   drd.stop();
 }
@@ -143,13 +141,15 @@ void NTPClient::Setup(PxMATRIX* d)
   //Local intialization. Once its business is done, there is no need to keep it around
   WiFiManager wifiManager;
   wifiManager.setSaveConfigCallback(saveConfigCallback);
-  WiFiManagerParameter timeZoneParameter("timeZone", "Time Zone", timezone, 5); 
+  WiFiManagerParameter timeZoneParameter("timeZone", "GMT Offset(hours)", timezone, 5); 
   wifiManager.addParameter(&timeZoneParameter);
-  WiFiManagerParameter militaryParameter("military", "24Hr", military, 3); 
+  WiFiManagerParameter militaryParameter("military", "24Hr (Y/N)", military, 3); 
   wifiManager.addParameter(&militaryParameter);
 
+  int sensorValue = analogRead(A0);
+  
   //-- Double-Reset --
-  if (drd.detectDoubleReset()) {
+  if (drd.detectDoubleReset() || (sensorValue>255) ) {
     Serial.println("Double Reset Detected");
     digitalWrite(LED_BUILTIN, LOW);
 
@@ -169,9 +169,7 @@ void NTPClient::Setup(PxMATRIX* d)
     wifiManager.startConfigPortal(wifiManagerAPName, wifiManagerAPPassword);
 
     _display->fillScreen(_display->color565(0, 0, 0));
-  } 
-  else 
-  {
+  } else {
     Serial.println("No Double Reset Detected");
     digitalWrite(LED_BUILTIN, HIGH);
 
@@ -269,7 +267,7 @@ unsigned long NTPClient::ReadCurrentEpoch()
     udp.read(packetBuffer, NTP_PACKET_SIZE); // read the packet into the buffer
 
     //the timestamp starts at byte 40 of the received packet and is four bytes,
-    // or two words, long. First, esxtract the two words:
+    // or two words, long. First, extract the two words:
 
     unsigned long highWord = word(packetBuffer[40], packetBuffer[41]);
     unsigned long lowWord = word(packetBuffer[42], packetBuffer[43]);
@@ -331,6 +329,40 @@ byte NTPClient::GetHours()
     if (hours > 12) hours -= 12; // After noon 13:mm should show as 01:mm, etc...
   }
   return hours;
+}
+
+bool NTPClient::useMilitary(){
+  return (military[0] != 'N');	
+}
+/*
+Midnight (start of day)
+12 midnight
+12:00 a.m.[a]	00:00
+12:01 a.m.	00:01
+  1:00 a.m.	01:00
+11:00 a.m.	11:00
+11:59 a.m.	11:59
+Noon
+12 noon
+12:00 p.m.[a]	12:00
+12:01 p.m.	12:01
+  1:00 p.m.	13:00
+11:00 p.m.	23:00
+11:59 p.m.	23:59
+*/
+bool NTPClient::isAM(){
+
+  int hours = (currentTime  % 86400L) / 3600;
+  
+  // Midnight in military time is 0:mm, but we want midnight to be 12:mm
+  if (hours == 0) {
+	  return true; 
+  }
+  // After noon 13:mm should show as 01:mm, etc...
+  if (hours > 12) {
+	  return false;
+  }
+  return true;
 }
 
 byte NTPClient::GetMinutes()

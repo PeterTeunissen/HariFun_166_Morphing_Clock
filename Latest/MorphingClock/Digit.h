@@ -13,6 +13,12 @@ class Digit {
     void Morph(byte newValue);
     byte Value();
     void DrawColon(uint16_t c);
+    void setSize(int sz);
+    void setColonLeft(bool b);
+    void setX(uint16_t x);
+    uint16_t getX();
+    void setY(uint16_t y);
+    uint16_t getY();
     
   private:
     PxMATRIX* _display;
@@ -21,7 +27,10 @@ class Digit {
     uint16_t xOffset;
     uint16_t yOffset;
     int animSpeed = 30;
-
+    int segHeight = 6;
+    int segWidth = segHeight;
+    bool colonLeft = true;
+    
     void drawPixel(uint16_t x, uint16_t y, uint16_t c);
     void drawFillRect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t c);
     void drawLine(uint16_t x, uint16_t y, uint16_t x2, uint16_t y2, uint16_t c);
