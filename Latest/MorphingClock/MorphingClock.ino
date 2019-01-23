@@ -70,6 +70,7 @@ Digit digit3(&display, 0, 63 - 4 - 9*4, 8, display.color565(0, 0, 255));
 Digit digit4(&display, 0, 63 - 7 - 9*5, 8, display.color565(0, 0, 255));
 Digit digit5(&display, 0, 63 - 7 - 9*6, 8, display.color565(0, 0, 255));
 
+uint16_t digitColor = display.color565(0, 0, 255);
 uint16_t amColor = display.color565(61, 165, 43);
 uint16_t pmColor = display.color565(204, 58, 0);
 uint16_t colonColor = display.color565(0, 0, 255);
@@ -182,7 +183,16 @@ void loop() {
         int h0 = hh % 10;
         int h1 = hh / 10;
         if (h0!=digit4.Value()) digit4.Morph(h0);
-        if (h1!=digit5.Value()) digit5.Morph(h1);
+        if (h1!=digit5.Value()) {         
+          if (!ntpClient.useMilitary()) {
+            if (h1==0) {
+              digit5.setColor(0);
+            } else {
+              digit5.setColor(digitColor);          
+            }
+          }
+          digit5.Morph(h1);
+        }
         prevhh = hh;
       }
     }

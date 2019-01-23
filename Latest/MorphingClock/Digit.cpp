@@ -89,6 +89,10 @@ void Digit::setColonLeft(bool b) {
   colonLeft = b;  
 }
 
+void Digit::setColor(uint16_t color){
+  _color = color;
+}
+
 void Digit::DrawColon(uint16_t c)
 {
   // Colon is drawn to the left of this digit

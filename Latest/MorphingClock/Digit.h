@@ -19,6 +19,7 @@ class Digit {
     uint16_t getX();
     void setY(uint16_t y);
     uint16_t getY();
+    void setColor(uint16_t color);
     
   private:
     PxMATRIX* _display;
