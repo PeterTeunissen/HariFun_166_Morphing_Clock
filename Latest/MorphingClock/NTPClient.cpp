@@ -2,6 +2,8 @@
 #include <DNSServer.h>
 #include <ESP8266WebServer.h>
 #include <WiFiManager.h> //https://github.com/tzapu/WiFiManager
+#include <TimeLib.h>
+
 char wifiManagerAPName[] = "MorphClk";
 char wifiManagerAPPassword[] = "HariFun";
 
@@ -327,6 +329,18 @@ unsigned long NTPClient::GetCurrentTime()
     currentTime =  lastEpoch + zoneOffset + (elapsedMillis / 1000);
   }
   return currentTime;
+}
+
+int NTPClient::getDay(){
+  return day((time_t)GetCurrentTime());  
+}
+
+int NTPClient::getMonth(){
+  return month((time_t)GetCurrentTime());    
+}
+
+int NTPClient::getYear(){
+  return year((time_t)GetCurrentTime());    
 }
 
 byte NTPClient::GetHours()

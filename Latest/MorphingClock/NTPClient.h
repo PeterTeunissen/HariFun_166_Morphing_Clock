@@ -32,10 +32,13 @@
     byte GetHours();
     byte GetMinutes();
     byte GetSeconds();
+    int getDay();
+    int getMonth();
+    int getYear();
     void PrintTime();
 	  bool useMilitary();
 	  bool isAM();
-	
+
   private:
     PxMATRIX* _display;
     unsigned long sendNTPpacket(IPAddress& address);

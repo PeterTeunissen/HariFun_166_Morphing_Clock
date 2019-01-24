@@ -72,7 +72,7 @@ Digit digit5(&display, 0, 63 - 7 - 9*6, 8, display.color565(0, 0, 255));
 
 uint16_t digitColor = display.color565(0, 0, 255);
 uint16_t amColor = display.color565(61, 165, 43);
-uint16_t pmColor = display.color565(204, 58, 0);
+uint16_t pmColor = display.color565(60, 20, 0);
 uint16_t colonColor = display.color565(0, 0, 255);
   
 //=== CLOCK ===
@@ -115,11 +115,19 @@ void setup() {
   digit4.DrawColon(colonColor);
 }
 
-bool isAM = true;
+bool isAMFlag = true;
 bool digit5Hidden = false;
+
+void updateDate() {
+  char dstring[15];
+  sprintf(dstring,"%d/%d/%d",ntpClient.getMonth(),ntpClient.getDay(),ntpClient.getYear());
+  String txt = String(dstring);
+  TFDrawText(&display, txt, 12, 26, display.color565(51, 0, 26));
+}
 
 void loop() {
   unsigned long epoch = ntpClient.GetCurrentTime();
+  
   //Serial.print("GetCurrentTime returned epoch = ");
   //Serial.println(epoch);
   if (epoch != 0) {
@@ -138,9 +146,11 @@ void loop() {
       digit4.Draw(hh % 10);
       digit5.Draw(hh / 10);
 
+      updateDate();
+      
       if (!ntpClient.useMilitary()) {
-        isAM = ntpClient.isAM();
-        if (isAM) {
+        isAMFlag = ntpClient.isAM();
+        if (isAMFlag) {
           TFDrawChar(&display,'A',63 - 1 + 3 - 9*2,19,amColor);
           TFDrawChar(&display,'M',63 - 1 - 2 - 9*1,19,amColor);
         } else {
@@ -151,9 +161,9 @@ void loop() {
     }
     else
     {
-      if (!ntpClient.useMilitary() && (ntpClient.isAM()!=isAM)) {
-        isAM = ntpClient.isAM();
-        if (isAM) {
+      if (!ntpClient.useMilitary() && (ntpClient.isAM()!=isAMFlag)) {
+        isAMFlag = ntpClient.isAM();
+        if (isAMFlag) {
           TFDrawChar(&display,'A',63 - 1 + 3 - 9*2,19,amColor);
           TFDrawChar(&display,'M',63 - 1 - 2 - 9*1,19,amColor);
         } else {
@@ -189,6 +199,9 @@ void loop() {
       }
       
       if (hh!=prevhh) {
+
+         updateDate();
+
         int h0 = hh % 10;
         int h1 = hh / 10;
         if (h0!=digit4.Value()) {
