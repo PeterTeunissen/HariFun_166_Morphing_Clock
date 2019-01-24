@@ -105,6 +105,20 @@ void Digit::DrawColon(uint16_t c)
   }
 }
 
+void Digit::hide() {
+  byte savedColor = _color;
+  _color = black;
+  drawSeg(sA);
+  drawSeg(sB);
+  drawSeg(sC);
+  drawSeg(sD);
+  drawSeg(sE);
+  drawSeg(sF);
+  drawSeg(sG);
+  _color = savedColor;
+  _value = 0;
+}
+
 void Digit::drawSeg(byte seg)
 {
   switch (seg) {

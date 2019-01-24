@@ -87,6 +87,13 @@ bool loadConfig() {
 
   strcpy(timezone, json["timezone"]);
   strcpy(military, json["military"]);
+
+  Serial.print("LC timezone=");
+  Serial.println(timezone);
+
+  Serial.print("LC military=");
+  Serial.println(military);
+  
   return true;
 }
 
@@ -102,10 +109,10 @@ bool saveConfig() {
     return false;
   }
 
-  Serial.print("timezone=");
+  Serial.print("SC timezone=");
   Serial.println(timezone);
 
-  Serial.print("military=");
+  Serial.print("SC military=");
   Serial.println(military);
 
   json.printTo(configFile);
@@ -146,6 +153,8 @@ void NTPClient::Setup(PxMATRIX* d)
   WiFiManagerParameter militaryParameter("military", "24Hr (Y/N)", military, 3); 
   wifiManager.addParameter(&militaryParameter);
 
+  // Only pin left is my analog pin to initiate a forced config. Holding it to +3v3 during startup
+  // will move it into config mode.
   int sensorValue = analogRead(A0);
   
   //-- Double-Reset --
@@ -181,7 +190,9 @@ void NTPClient::Setup(PxMATRIX* d)
     //and goes into a blocking loop awaiting configuration
     wifiManager.autoConnect(wifiManagerAPName, wifiManagerAPPassword);
   }
-  
+
+  drd.stop();
+
   //-- Status --
   _display->fillScreen(_display->color565(0, 0, 0));
   _display->setCursor(2, row0);
@@ -211,7 +222,6 @@ void NTPClient::Setup(PxMATRIX* d)
   if (shouldSaveConfig) {
     saveConfig();
   }
-  drd.stop();
   
   delay(3000);
 }

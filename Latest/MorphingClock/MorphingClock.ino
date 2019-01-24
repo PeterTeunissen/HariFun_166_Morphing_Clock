@@ -116,6 +116,7 @@ void setup() {
 }
 
 bool isAM = true;
+bool digit5Hidden = false;
 
 void loop() {
   unsigned long epoch = ntpClient.GetCurrentTime();
@@ -165,8 +166,12 @@ void loop() {
       if (ss!=prevss) { 
         int s0 = ss % 10;
         int s1 = ss / 10;
-        if (s0!=digit0.Value()) digit0.Morph(s0);
-        if (s1!=digit1.Value()) digit1.Morph(s1);
+        if (s0!=digit0.Value()) {
+          digit0.Morph(s0);
+        }
+        if (s1!=digit1.Value()) {
+          digit1.Morph(s1);
+        }
         //ntpClient.PrintTime();
         prevss = ss;
       }
@@ -174,24 +179,35 @@ void loop() {
       if (mm!=prevmm) {
         int m0 = mm % 10;
         int m1 = mm / 10;
-        if (m0!=digit2.Value()) digit2.Morph(m0);
-        if (m1!=digit3.Value()) digit3.Morph(m1);
+        if (m0!=digit2.Value()) {
+          digit2.Morph(m0);
+        }
+        if (m1!=digit3.Value()) {
+          digit3.Morph(m1);
+        }
         prevmm = mm;
       }
       
       if (hh!=prevhh) {
         int h0 = hh % 10;
         int h1 = hh / 10;
-        if (h0!=digit4.Value()) digit4.Morph(h0);
-        if (h1!=digit5.Value()) {         
-          if (!ntpClient.useMilitary()) {
-            if (h1==0) {
-              digit5.setColor(0);
-            } else {
-              digit5.setColor(digitColor);          
+        if (h0!=digit4.Value()) {
+          digit4.Morph(h0);
+        }
+        if (ntpClient.useMilitary()) {
+          if (h1!=digit5.Value()) {         
+            digit5.Morph(h1);
+          }        
+        } else {
+          if (h1==0 && (!digit5Hidden)) {
+            digit5.hide();
+            digit5Hidden = true;
+          } else {
+            if (h1!=digit5.Value()) {
+              digit5Hidden = false;
+              digit5.Morph(h1);
             }
           }
-          digit5.Morph(h1);
         }
         prevhh = hh;
       }
