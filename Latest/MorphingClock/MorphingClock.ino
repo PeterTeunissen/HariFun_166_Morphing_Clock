@@ -506,7 +506,7 @@ void draw_weather () {
 
 void updateDate() {
   char dstring[15];
-  sprintf(dstring, "%d/%d/%d", ntpClient.getMonth(), ntpClient.getDay(), ntpClient.getYear());
+  sprintf(dstring, "%d/%d/%d  ", ntpClient.getMonth(), ntpClient.getDay(), ntpClient.getYear());
   String txt = String(dstring);
   TFDrawText(&display, txt, 12, 26, display.color565(51, 0, 26));
 }
