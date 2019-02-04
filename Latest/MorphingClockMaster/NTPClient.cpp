@@ -127,7 +127,7 @@ NTPClient::NTPClient()
 }
 
 
-void NTPClient::Setup(PxMATRIX* d)
+void NTPClient::Setup()
 {
   //-- Config --
   if (!SPIFFS.begin()) {
@@ -137,9 +137,9 @@ void NTPClient::Setup(PxMATRIX* d)
   loadConfig();
 
   //-- Display --
-  _display = d;
-  _display->fillScreen(_display->color565(0, 0, 0));
-  _display->setTextColor(_display->color565(0, 0, 255));
+ // _display = d;
+//  _display->fillScreen(_display->color565(0, 0, 0));
+//  _display->setTextColor(_display->color565(0, 0, 255));
   //_display->setFont(&FreeMono9pt7b);
   //_display->setTextSize(1);
   const byte row0 = 2+0*10;
@@ -165,28 +165,28 @@ void NTPClient::Setup(PxMATRIX* d)
     Serial.println("Double Reset Detected");
     digitalWrite(LED_BUILTIN, LOW);
 
-    _display->setCursor(1, row0);     _display->print("AP");
-    _display->setCursor(1+10, row0);    _display->print(":");
-    _display->setCursor(1+10+5, row0);  _display->print(wifiManagerAPName);
-
-    _display->setCursor(1, row1);     _display->print("Pw");
-    _display->setCursor(1+10, row1);    _display->print(":");
-    _display->setCursor(1+10+5, row1);  _display->print(wifiManagerAPPassword);
-
-    _display->setCursor(1, row2); _display->print("192");
-    _display->setCursor(1+3*6 -1, row2); _display->print(".168");
-    _display->setCursor(1+3*6 -1 + 5+ 3*6, row2); _display->print(".4");
-    _display->setCursor(1+3*6 -1 + 5+ 3*6 + 5 + 6, row2); _display->print(".1");
+//    _display->setCursor(1, row0);     _display->print("AP");
+//    _display->setCursor(1+10, row0);    _display->print(":");
+//    _display->setCursor(1+10+5, row0);  _display->print(wifiManagerAPName);
+//
+//    _display->setCursor(1, row1);     _display->print("Pw");
+//    _display->setCursor(1+10, row1);    _display->print(":");
+//    _display->setCursor(1+10+5, row1);  _display->print(wifiManagerAPPassword);
+//
+//    _display->setCursor(1, row2); _display->print("192");
+//    _display->setCursor(1+3*6 -1, row2); _display->print(".168");
+//    _display->setCursor(1+3*6 -1 + 5+ 3*6, row2); _display->print(".4");
+//    _display->setCursor(1+3*6 -1 + 5+ 3*6 + 5 + 6, row2); _display->print(".1");
 
     wifiManager.startConfigPortal(wifiManagerAPName, wifiManagerAPPassword);
 
-    _display->fillScreen(_display->color565(0, 0, 0));
+//    _display->fillScreen(_display->color565(0, 0, 0));
   } else {
     Serial.println("No Double Reset Detected");
     digitalWrite(LED_BUILTIN, HIGH);
 
-    _display->setCursor(2, row1);
-    _display->print("Connecting");
+//    _display->setCursor(2, row1);
+//    _display->print("Connecting");
 
     //fetches ssid and pass from eeprom and tries to connect
     //if it does not connect it starts an access point with the specified name wifiManagerAPName
@@ -197,9 +197,9 @@ void NTPClient::Setup(PxMATRIX* d)
   drd.stop();
 
   //-- Status --
-  _display->fillScreen(_display->color565(0, 0, 0));
-  _display->setCursor(2, row0);
-  _display->print("Connected!");
+//  _display->fillScreen(_display->color565(0, 0, 0));
+//  _display->setCursor(2, row0);
+//  _display->print("Connected!");
   Serial.println("WiFi connected");
   
   Serial.println("IP address: ");
@@ -212,15 +212,15 @@ void NTPClient::Setup(PxMATRIX* d)
 
   //-- Timezone --
   strcpy(timezone,timeZoneParameter.getValue());
-  _display->setCursor(2, row1);
-  _display->print("Zone:");
-  _display->print(timezone);
+//  _display->setCursor(2, row1);
+//  _display->print("Zone:");
+//  _display->print(timezone);
   
   //-- Military --
   strcpy(military,militaryParameter.getValue());
-  _display->setCursor(2, row2);
-  _display->print("24Hr:");
-  _display->print(military);
+//  _display->setCursor(2, row2);
+//  _display->print("24Hr:");
+//  _display->print(military);
 
   if (shouldSaveConfig) {
     saveConfig();
