@@ -9,8 +9,9 @@
 #define double_buffer
 #include <PxMatrix.h>
 #include "Digit.h"
-#include "NTPClient.h"
 #include "TinyFont.h"
+#include <TimeLib.h>
+#include <ArduinoJson.h>
 
 #ifdef ESP32
 
@@ -89,69 +90,24 @@ uint16_t cc_dgr = display.color565 (30, 30, 30);
 uint16_t cc_lblu = display.color565 (0, 255, 255);
 uint16_t cc_ppl = display.color565 (255, 0, 255);
 
-//=== CLOCK ===
-NTPClient ntpClient;
 unsigned long prevEpoch;
+unsigned long epoch;
+bool isReading = false;
+bool isParsing = false;
+byte parseIndex = 0;
+char recBuf[300];
 byte prevhh;
 byte prevmm;
 byte prevss;
-
-void setup() {
-  Serial.begin(9600);
-  display.setDriverChip(FM6126A);
-  display.begin(16);
-
-#ifdef ESP8266
-  display_ticker.attach(0.002, display_updater);
-#endif
-
-#ifdef ESP32
-  timer = timerBegin(0, 80, true);
-  timerAttachInterrupt(timer, &display_updater, true);
-  timerAlarmWrite(timer, 2000, true);
-  timerAlarmEnable(timer);
-#endif
-
-  ntpClient.Setup(&display);
-
-  if (!ntpClient.useMilitary()) {
-    digit0.setSize(3);
-    digit0.setY(digit0.getY() + 6);
-    digit0.setX(digit0.getX() - 1);
-    digit1.setSize(3);
-    digit1.setX(digit1.getX() + 2);
-    digit1.setY(digit1.getY() + 6);
-  }
-  digit2.setColonLeft(false);
-  digit4.setColonLeft(false);
-  display.fillScreen(display.color565(0, 0, 0));
-  digit2.DrawColon(colonColor);
-  digit4.DrawColon(colonColor);
-}
-
-String StringPieceAsString(const String &line, const String &word, const String &term, byte size) {
-  int bT = line.indexOf(word);
-  if (bT > 0) {
-    int bT2 = line.indexOf (term, bT + size);
-    return line.substring (bT + size, bT2);
-  }
-  return "";
-}
-
-int StringPieceAsInt(const String &line, const String &word, const String &term, byte size) {
-  return StringPieceAsString(line, word, term, size).toInt();
-}
-
+bool useMilitary = false;
 bool isAMFlag = true;
 bool digit5Hidden = false;
 
 String location = "Phoenixville,US"; //e.g. "Paris,FR"
 char server[]   = "api.openweathermap.org";
-WiFiClient client;
+
 String apiKey = "aec6c8810510cce7b0ee8deca174c79a";
 //http://api.openweathermap.org/data/2.5/weather?q=Phoenixville,PA&appid=aec6c8810510cce7b0ee8deca174c79a&cnt=1&units=metric
-//int tempMin = -10000;
-//int tempMax = -10000;
 int tempM = -10000;
 int tempTMP = 0;
 int prevTempTMP = 0;
@@ -169,206 +125,117 @@ int gust = 0;
 int xo;
 int yo;
 char u_metric[] = "N";
-String line;
-bool parseLine = false;
-byte parseIndex = 0;
 
-void getWeather () {
-  if (!apiKey.length ())
-  {
-    Serial.println (F("w:missing API KEY for weather data, skipping"));
-    return;
+
+void setup() {
+  Serial.begin(9600);
+  display.setDriverChip(FM6126A);
+  display.begin(16);
+
+#ifdef ESP8266
+  display_ticker.attach(0.002, display_updater);
+#endif
+
+#ifdef ESP32
+  timer = timerBegin(0, 80, true);
+  timerAttachInterrupt(timer, &display_updater, true);
+  timerAlarmWrite(timer, 2000, true);
+  timerAlarmEnable(timer);
+#endif
+
+  if (useMilitary) {
+    digit0.setSize(3);
+    digit0.setY(digit0.getY() + 6);
+    digit0.setX(digit0.getX() - 1);
+    digit1.setSize(3);
+    digit1.setX(digit1.getX() + 2);
+    digit1.setY(digit1.getY() + 6);
   }
-  Serial.println (F("i:connecting to weather server.. "));
-  // if you get a connection, report back via serial:
-  if (client.connect (server, 80))
-  {
-    Serial.println (F("connected."));
-    // Make a HTTP request:
-    client.print ("GET /data/2.5/weather?");
-    client.print ("q=" + location);
-    client.print ("&appid=" + apiKey);
-    client.print ("&cnt=1");
-    //    (*u_metric=='Y')?client.println ("&units=metric"):
-    client.println ("&units=imperial");
-    client.println (F("Host: api.openweathermap.org"));
-    client.println (F("Connection: close"));
-    client.println ();
-  } else {
-    Serial.println (F("w:unable to connect"));
-    return;
-  }
-  String sval = "";
-//  int bT, bT2;
-  //do your best
-  delay(1000);
-//  String line = client.readStringUntil ('\n');
-  line = client.readStringUntil ('\n');
-  if (!line.length ())
-    Serial.println (F("w:unable to retrieve weather data"));
-  else
-  {
-    Serial.print (F("weather:"));
-    Serial.println (line);
-    parseLine = true;
-    parseIndex = 0;
-    //weather conditions - "main":"Clear",
-    sval = StringPieceAsString(line, "\"icon\":\"", "\"", 8);
-    //    bT = line.indexOf ("\"icon\":\"");
-    //    if (bT > 0)
-    //    {
-    //      bT2 = line.indexOf ("\"", bT + 8);
-    //      sval = line.substring (bT + 8, bT2);
-    Serial.print (F("cond "));
-    Serial.println (sval);
-    //0 - unk, 1 - sunny, 2 - cloudy, 3 - overcast, 4 - rainy, 5 - thunders, 6 - snow
-    if (sval.equals("01d"))
-      condM = 1; //sunny
-    else if (sval.equals("01n"))
-      condM = 8; //clear night
-    else if (sval.equals("02d"))
-      condM = 2; //partly cloudy day
-    else if (sval.equals("02n"))
-      condM = 10; //partly cloudy night
-    else if (sval.equals("03d"))
-      condM = 3; //overcast day
-    else if (sval.equals("03n"))
-      condM = 11; //overcast night
-    else if (sval.equals("04d"))
-      condM = 3;//overcast day
-    else if (sval.equals("04n"))
-      condM = 11;//overcast night
-    else if (sval.equals("09d"))
-      condM = 4; //rain
-    else if (sval.equals("09n"))
-      condM = 4;
-    else if (sval.equals("10d"))
-      condM = 4;
-    else if (sval.equals("10n"))
-      condM = 4;
-    else if (sval.equals("11d"))
-      condM = 5; //thunder
-    else if (sval.equals("11n"))
-      condM = 5;
-    else if (sval.equals("13d"))
-      condM = 6; //snow
-    else if (sval.equals("13n"))
-      condM = 6;
-    else if (sval.equals("50d"))
-      condM = 7; //haze (day)
-    else if (sval.equals("50n"))
-      condM = 9; //fog (night)
-    //
-    condS = sval;
-    Serial.print (F("condM "));
-    Serial.println (condM);
-    //    }
-    //tempM
-    //    bT = line.indexOf ("\"temp\":");
-    //    if (bT > 0) {
-    //      bT2 = line.indexOf (",\"", bT + 7);
-    //      sval = line.substring (bT + 7, bT2);
-    //      Serial.print ("temp: ");
-    //      Serial.println (sval);
-    //      tempM = sval.toInt ();
-    //    } else {
-    //      Serial.println ("temp NOT found!");
-    //    }
-    tempM = StringPieceAsInt(line, "\"temp\":", ",\"", 7);
-    //pressM
-    //    bT = line.indexOf ("\"pressure\":");
-    //    if (bT > 0) {
-    //      bT2 = line.indexOf (",\"", bT + 11);
-    //      sval = line.substring (bT + 11, bT2);
-    //      Serial.print ("press ");
-    //      Serial.println (sval);
-    //      presM = sval.toInt();
-    //    } else {
-    //      Serial.println ("pressure NOT found!");
-    //    }
-    presM = StringPieceAsInt(line, "\"pressure\":", ",\"", 11);
-    //humiM
-    //    bT = line.indexOf ("\"humidity\":");
-    //    if (bT > 0) {
-    //      bT2 = line.indexOf (",\"", bT + 11);
-    //      sval = line.substring (bT + 11, bT2);
-    //      Serial.print ("humi ");
-    //      Serial.println (sval);
-    //      humiM = sval.toInt();
-    //    } else {
-    //      Serial.println ("humidity NOT found!");
-    //    }
-    humiM = StringPieceAsInt(line, "\"humidity\":", ",\"", 11);
-    //gust
-    //    bT = line.indexOf ("\"gust\":");
-    //    if (bT > 0) {
-    //      bT2 = line.indexOf (",\"", bT + 7);
-    //      sval = line.substring (bT + 7, bT2);
-    //      gust = sval.toInt();
-    //    } else {
-    //      Serial.println ("windspeed NOT found!");
-    //      gust = 0;
-    //    }
-    gust = StringPieceAsInt(line, "\"gust\":", ",\"", 7);
-    //wind speed
-    //    bT = line.indexOf ("\"speed\":");
-    //    if (bT > 0) {
-    //      bT2 = line.indexOf (",\"", bT + 8);
-    //      sval = line.substring (bT + 8, bT2);
-    //      wind_speed = sval.toInt();
-    //    } else {
-    //      Serial.println ("windspeed NOT found!");
-    //    }
-    wind_speed = StringPieceAsInt(line, "\"speed\":", ",\"", 8);
-    //wind direction
-    wind_nr = StringPieceAsInt(line, "\"deg\":", ",\"", 6);
-    wind_nr = round(((wind_nr % 360)) / 45.0) + 1;
-    //    bT = line.indexOf ("\"deg\":");
-    //    if (bT > 0) {
-    //      bT2 = line.indexOf (",\"", bT + 6);
-    //      sval = line.substring (bT + 6, bT2);
-    //      wind_nr = round(((sval.toInt() % 360))/45.0) + 1;
-    wind_direction = "";
-    switch (wind_nr) {
-      case 1:
-        wind_direction = "N";
-        break;
-      case 2:
-        wind_direction = "NE";
-        break;
-      case 3:
-        wind_direction = "E";
-        break;
-      case 4:
-        wind_direction = "SE";
-        break;
-      case 5:
-        wind_direction = "S";
-        break;
-      case 6:
-        wind_direction = "SW";
-        break;
-      case 7:
-        wind_direction = "W";
-        break;
-      case 8:
-        wind_direction = "NW";
-        break;
-      case 9:
-        wind_direction = "N";
-        break;
-      default:
-        wind_direction = "";
-        break;
-    }
-    //      Serial.print ("wind direction ");
-    //      Serial.println(wind_direction);
-    //    } else {
-    //      Serial.println ("windspeed NOT found!");
-    //      wind_direction = "";
-    //    }
-  }//connected
+  digit2.setColonLeft(false);
+  digit4.setColonLeft(false);
+  display.fillScreen(display.color565(0, 0, 0));
+  digit2.DrawColon(colonColor);
+  digit4.DrawColon(colonColor);
+  strcpy(recBuf,"");
 }
+
+void readLoop() {
+  if (isParsing) {
+    return;
+  }
+  
+  while (Serial.available()>0) {
+    char c = Serial.read();
+    if (c=='>') {
+      isReading = true;
+      isParsing = false;
+      Serial.println(F("Start receive..."));
+    }
+    if (isReading && c>=32 && c<=126) {
+      strncat(recBuf,&c,1);
+    }
+    if (c=='<') {
+      isReading = false;
+      isParsing = true;
+      parseIndex = 0;
+      Serial.println(F("Stop receive..."));
+      Serial.print(F("Data:"));
+      Serial.println(recBuf);
+    }
+  }
+}
+
+void parseLoop() {
+  if (!isParsing) {
+    return;  
+  }
+
+  Serial.println(F("Start parsing..."));
+  
+  StaticJsonBuffer<200> jsonBuffer;
+  JsonObject& json = jsonBuffer.parseObject(recBuf);
+
+  if (!json.success()) {
+    Serial.println("Failed to parse json buf");
+    isParsing = false;
+    return;
+  }
+
+  char b[20];
+
+  tempTMP = atoi(json["itmp"]);
+  tempM = atoi(json["otmp"]);
+  presM = atoi(json["otmp"]);
+  if (json["tmpU"]=="C") {
+ //   u_metric='Y';
+  } else {
+  //  u_metric='N';    
+  }
+  useMilitary = (json["mil"]=="Y");
+  humiM = json["hum"];
+  strcpy(b,json["dir"]);
+  wind_direction = String(b);
+
+  epoch = atoi(json["tim"]);
+  setTime(epoch);
+  
+  isParsing = false;
+  Serial.println(F("Done parsing..."));
+}
+
+String StringPieceAsString(const String &line, const String &word, const String &term, byte size) {
+  int bT = line.indexOf(word);
+  if (bT > 0) {
+    int bT2 = line.indexOf (term, bT + size);
+    return line.substring (bT + size, bT2);
+  }
+  return "";
+}
+
+int StringPieceAsInt(const String &line, const String &word, const String &term, byte size) {
+  return StringPieceAsString(line, word, term, size).toInt();
+}
+
 
 void draw_weather () {
 //  int cc_wht = display.color565 (255, 255, 255);
@@ -433,7 +300,7 @@ void draw_weather () {
       lcc = cc_blu;
     if (humiM < 20)
       lcc = cc_wht;
-    lstr = String (humiM) + "%";
+    lstr = String (humiM);// + "%";
     xo = 9 * TF_COLS;
     TFDrawText (&display, lstr, xo, yo, lcc);
     //-pressure
@@ -502,24 +369,26 @@ void draw_weather () {
 
 void updateDate() {
   char dstring[15];
-  sprintf(dstring, "%d/%d/%d  ", ntpClient.getMonth(), ntpClient.getDay(), ntpClient.getYear());
+  sprintf(dstring, "%d/%d/%d  ", month(), day(), year());
   String txt = String(dstring);
   TFDrawText(&display, txt, 13, 26, display.color565(51, 0, 26));
 }
 
 void loop() {
-  unsigned long epoch = ntpClient.GetCurrentTime();
 
+  readLoop();
+  parseLoop();
+  
   //Serial.print("GetCurrentTime returned epoch = ");
   //Serial.println(epoch);
-  if (epoch != 0) {
-    ntpClient.PrintTime();
-  }
+//  if (epoch != 0) {
+//    ntpClient.PrintTime();
+//  }
 
   if (epoch != prevEpoch) {
-    int hh = ntpClient.GetHours();
-    int mm = ntpClient.GetMinutes();
-    int ss = ntpClient.GetSeconds();
+    int hh = hour(epoch); //ntpClient.GetHours();
+    int mm = minute(epoch); //ntpClient.GetMinutes();
+    int ss = second(epoch); //ntpClient.GetSeconds();
     if (prevEpoch == 0) { // If we didn't have a previous time. Just draw it without morphing.
       digit0.Draw(ss % 10);
       digit1.Draw(ss / 10);
@@ -529,11 +398,12 @@ void loop() {
       digit5.Draw(hh / 10);
 
       updateDate();
-      getWeather();
+      //getWeather();
       draw_weather();
 
-      if (!ntpClient.useMilitary()) {
-        isAMFlag = ntpClient.isAM();
+//      if (!ntpClient.useMilitary()) {
+      if (!useMilitary) {
+       // isAMFlag = ntpClient.isAM();
         if (isAMFlag) {
           TFDrawChar(&display, 'A', 63 - 1 + 3 - 9 * 2, 19, amColor);
           TFDrawChar(&display, 'M', 63 - 1 - 2 - 9 * 1, 19, amColor);
@@ -545,8 +415,8 @@ void loop() {
     }
     else
     {
-      if (!ntpClient.useMilitary() && (ntpClient.isAM() != isAMFlag)) {
-        isAMFlag = ntpClient.isAM();
+      if (useMilitary && isAMFlag) {
+//        isAMFlag = ntpClient.isAM();
         if (isAMFlag) {
           TFDrawChar(&display, 'A', 63 - 1 + 3 - 9 * 2, 19, amColor);
           TFDrawChar(&display, 'M', 63 - 1 - 2 - 9 * 1, 19, amColor);
@@ -570,12 +440,9 @@ void loop() {
         prevss = ss;
         //refresh weather every 5mins at 30sec in the minute
         if (ss == 30 && ((mm % 5) == 0)) {
-          getWeather ();
+          //getWeather ();
         }
         if ((ss == 15) || (ss == 45)) {
-          f1 = analogRead(A0);
-          f2 = ((f1 * (3.2)) - 500) / 10;
-          f3 = (f2 * 1.8) + 32;
           tempTMP = round(f3);
           if (tempTMP!=prevTempTMP) {
             draw_weather();
@@ -604,7 +471,7 @@ void loop() {
         if (h0 != digit4.Value()) {
           digit4.Morph(h0);
         }
-        if (ntpClient.useMilitary()) {
+        if (useMilitary) {
           if (h1 != digit5.Value()) {
             digit5.Morph(h1);
           }

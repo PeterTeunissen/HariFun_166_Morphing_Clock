@@ -127,6 +127,7 @@ void getTimeZone() {
   delay(1000);
   String line = client.readStringUntil ('\n');
   Serial.println(line);
+  client.close();
 }
 
 //http://api.openweathermap.org/data/2.5/weather?q=Phoenixville,PA&appid=aec6c8810510cce7b0ee8deca174c79a&cnt=1&units=metric
@@ -161,7 +162,7 @@ void getWeather () {
   //do your best
   delay(1000);
 //  String line = client.readStringUntil ('\n');
-  line = client.readStringUntil ('\n');
+  line = client.readStringUntil('\n');
   if (!line.length ())
     Serial.println (F("w:unable to retrieve weather data"));
   else
@@ -336,6 +337,7 @@ void getWeather () {
     //      wind_direction = "";
     //    }
   }//connected
+  client.close();
 }
 
 void draw_weather () {
@@ -344,6 +346,10 @@ void draw_weather () {
   }
   StaticJsonBuffer<200> jsonBuffer;
   JsonObject& json = jsonBuffer.createObject();
+  
+  // Add:
+  // Digit color
+  
   json["tmpU"] = String((*u_metric == 'Y') ? "C" : "F");
   json["mil"] = String((ntpClient.useMilitary()?"Y":"N"));
   json["bar"] = presM;
