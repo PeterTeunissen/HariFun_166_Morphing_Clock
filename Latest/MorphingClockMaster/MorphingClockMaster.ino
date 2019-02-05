@@ -12,6 +12,7 @@
 #include <TimeLib.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include <ESP8266HTTPClient.h>
 
 #define ONE_WIRE_BUS_PIN 14
 
@@ -99,35 +100,39 @@ String line;
 bool parseLine = false;
 byte parseIndex = 0;
 
-//WiFiClient clientTZ;
 char serverTZ[]  = "api.timezonedb.com";
 String tzKey = "31VLCCL5BAKD";
 String tzZone = "America/New_York";
-//http://api.timezonedb.com/v2.1/get-time-zone?key=31VLCCL5BAKD&format=json&by=zone&zone=America/New_York&fields=gmtOffset,timestamp
 bool haveTZ = false;
+char tzLine[100];
 
 void getTimeZone() {
-  if (client.connect(serverTZ, 80)) {
-    Serial.println ("TZ connected.");
-    // Make a HTTP request:
-    client.print ("GET /v2.1/get-time-zone");
-    client.print ("?key=" + tzKey);
-    client.print ("&format=json");
-    client.print ("&by=zone");
-    client.print ("&zone=" + tzZone);
-    client.print ("&fields=gmtOffset,timestamp");
-    client.println (" HTTP/1.1");
-    client.println ("Host: api.timezonedb.com");
-    client.println ("Connection: close");
-    client.println ();
-  } else {
-    Serial.println (F("w:unable to connect"));
-    return;
-  }
-  delay(1000);
-  String line = client.readStringUntil ('\n');
-  Serial.println(line);
-  client.close();
+  HTTPClient http;
+  String url = "http://api.timezonedb.com/v2.1/get-time-zone?key=" + tzKey + "&format=json&by=zone&zone=" + tzZone + "&fields=gmtOffset,timestamp";
+  http.begin(url);
+  int httpCode = http.GET();  
+  if (httpCode > 0) { //Check the returning code
+    strcpy(tzLine, http.getString().c_str());   //Get the request response payload
+    Serial.print("HTTPTZ Resp:");                     //Print the response payload
+    Serial.println(tzLine);                     //Print the response payload
+    StaticJsonBuffer<200> jsonBuffer;
+    JsonObject& json = jsonBuffer.parseObject(tzLine);  
+    if (!json.success()) {
+      Serial.println("Failed to parse json string");
+    } else {
+      char b[10];
+      Serial.print("From json: timestamp:");
+      strcpy(b,json["timestamp"]);
+      int tm = atoi(json["timestamp"]);
+      setTime(tm);
+      Serial.print(b);
+      Serial.print(" gmtOffSet:");
+      strcpy(b,json["gmtOffset"]);
+      Serial.print(b);
+      Serial.println();
+    }  
+  }  
+  http.end();   
 }
 
 //http://api.openweathermap.org/data/2.5/weather?q=Phoenixville,PA&appid=aec6c8810510cce7b0ee8deca174c79a&cnt=1&units=metric
@@ -138,7 +143,6 @@ void getWeather () {
     return;
   }
   Serial.println (F("i:connecting to weather server.. "));
-  // if you get a connection, report back via serial:
   if (client.connect (server, 80))
   {
     Serial.println (F("connected."));
@@ -148,8 +152,7 @@ void getWeather () {
     client.print ("&appid=" + apiKey);
     client.print ("&cnt=1");
     //    (*u_metric=='Y')?client.println ("&units=metric"):
-    client.print ("&units=imperial");
-    client.println (" HTTP/1.1");
+    client.println ("&units=imperial");
     client.println (F("Host: api.openweathermap.org"));
     client.println (F("Connection: close"));
     client.println ();
@@ -158,11 +161,9 @@ void getWeather () {
     return;
   }
   String sval = "";
-//  int bT, bT2;
-  //do your best
   delay(1000);
-//  String line = client.readStringUntil ('\n');
   line = client.readStringUntil('\n');
+  client.stop(100);
   if (!line.length ())
     Serial.println (F("w:unable to retrieve weather data"));
   else
@@ -337,10 +338,9 @@ void getWeather () {
     //      wind_direction = "";
     //    }
   }//connected
-  client.close();
 }
 
-void draw_weather () {
+void drawWeather () {
   if (prevEpoch == 0) {
     return;
   }
@@ -359,13 +359,8 @@ void draw_weather () {
   json["tim"] = ntpClient.GetCurrentTime();
 
   int value = 0;
-//  Serial.println (F("showing the weather"));
-//  xo = 0;
-//  yo = 1;
-//  TFDrawText (&display, String(F("                   ")), xo, yo, cc_dgr);
   if (tempM == -10000 || humiM == -10000 || presM == -10000)
   {
-    //TFDrawText (&display, String("NO WEATHER DATA"), xo, yo, cc_dgr);
     Serial.println (F("!no weather data available"));
   } else {
     //weather below the clock
@@ -426,10 +421,6 @@ void draw_weather () {
     json["itmp"] = tempTMP;
     json["itmpC"] = lcc;
 
-//    String lstr = String (tempM) + String((*u_metric == 'Y') ? "C" : "F") + "/" + String(tempTMP) + String((*u_metric == 'Y') ? "C" : "F");
-//    Serial.print (F("temperature: "));
-//    Serial.println (lstr);
-  //  TFDrawText (&display, lstr, xo, yo, lcc);
     //weather conditions
     //-humidity
     lcc = cc_red;
@@ -443,21 +434,9 @@ void draw_weather () {
       lcc = cc_wht;
     json["hum"] = String (humiM) + "%";
     json["humC"] = lcc;
-//    lstr = String (humiM) + "%";
-//    xo = 9 * TF_COLS;
-  //  TFDrawText (&display, lstr, xo, yo, lcc);
     //-pressure
-//    lstr = String (presM);
-    xo = 12 * TF_COLS;
-    if (presM < 1000) {
-      xo = 13 * TF_COLS;
-    }
-  //  TFDrawText (&display, lstr, xo, yo, cc_gry);
     //draw wind speed and direction
     if (wind_speed > -10000) {
-      xo = 0 * TF_COLS;
-      yo = 26;
-  //    TFDrawText (&display, "   ", xo, yo, 0);
       //if there is gust, draw gust instead of wind speed
       if (gust > wind_speed) {
         value = gust;
@@ -487,38 +466,10 @@ void draw_weather () {
         ct = cc_red;
       }
       json["wndC"] = ct;
- //     Serial.print (F("wind_speed: "));
- //     Serial.println (lstr);
-  //    TFDrawText (&display, lstr, xo, yo, ct);
     }
-    if (wind_direction)
-    {
-      xo = 14 * TF_COLS;
-      yo = 26;
-  //    TFDrawText (&display, "   ", xo, yo, 0);
-      if (wind_direction.length() == 1) {
-        xo = 15 * TF_COLS;
-      }
-
-//      lstr = String (wind_direction);
-
-//      Serial.print (F("wind_direction: "));
-//      Serial.println (lstr);
-   //   TFDrawText (&display, lstr, xo, yo, cc_gry);
-    }
-
-    //weather conditions
-    //draw_weather_conditions ();
   }
   json.printTo(Serial);
   Serial.println();
-}
-
-void updateDate() {
-  char dstring[15];
-  sprintf(dstring, "%d/%d/%d  ", ntpClient.getMonth(), ntpClient.getDay(), ntpClient.getYear());
-  String txt = String(dstring);
-//  TFDrawText(&display, txt, 13, 26, display.color565(51, 0, 26));
 }
 
 void loop() {
@@ -543,9 +494,8 @@ void loop() {
 //      digit5.Draw(hh / 10);
 
       getTimeZone();
-      updateDate();
       getWeather();
-      draw_weather();
+      drawWeather();
 
       if (!ntpClient.useMilitary()) {
         isAMFlag = ntpClient.isAM();
@@ -593,7 +543,7 @@ void loop() {
           f3 = (f2 * 1.8) + 32;
           tempTMP = round(f3);
           if (tempTMP!=prevTempTMP) {
-            draw_weather();
+            drawWeather();
           }
           prevTempTMP = tempTMP;
         }
@@ -609,11 +559,10 @@ void loop() {
 //          digit3.Morph(m1);
 //        }
         prevmm = mm;
-        draw_weather();
+        drawWeather();
       }
 
       if (hh != prevhh) {
-        updateDate();
         int h0 = hh % 10;
         int h1 = hh / 10;
 //        if (h0 != digit4.Value()) {

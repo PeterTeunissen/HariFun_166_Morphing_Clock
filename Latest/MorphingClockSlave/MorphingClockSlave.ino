@@ -102,12 +102,6 @@ byte prevss;
 bool useMilitary = false;
 bool isAMFlag = true;
 bool digit5Hidden = false;
-
-String location = "Phoenixville,US"; //e.g. "Paris,FR"
-char server[]   = "api.openweathermap.org";
-
-String apiKey = "aec6c8810510cce7b0ee8deca174c79a";
-//http://api.openweathermap.org/data/2.5/weather?q=Phoenixville,PA&appid=aec6c8810510cce7b0ee8deca174c79a&cnt=1&units=metric
 int tempM = -10000;
 int tempTMP = 0;
 int prevTempTMP = 0;
@@ -125,7 +119,6 @@ int gust = 0;
 int xo;
 int yo;
 char u_metric[] = "N";
-
 
 void setup() {
   Serial.begin(9600);
@@ -157,6 +150,9 @@ void setup() {
   digit2.DrawColon(colonColor);
   digit4.DrawColon(colonColor);
   strcpy(recBuf,"");
+  isParsing = false;
+  isReading = true;
+  Serial.println("End of Setup");
 }
 
 void readLoop() {
@@ -165,13 +161,14 @@ void readLoop() {
   }
   
   while (Serial.available()>0) {
+    Serial.print(".");
     char c = Serial.read();
     if (c=='>') {
       isReading = true;
       isParsing = false;
       Serial.println(F("Start receive..."));
     }
-    if (isReading && c>=32 && c<=126) {
+    if (isReading && c>=32 && c<=126 && c!='>' && c!='<') {
       strncat(recBuf,&c,1);
     }
     if (c=='<') {
@@ -205,14 +202,14 @@ void parseLoop() {
 
   tempTMP = atoi(json["itmp"]);
   tempM = atoi(json["otmp"]);
-  presM = atoi(json["otmp"]);
-  if (json["tmpU"]=="C") {
- //   u_metric='Y';
-  } else {
-  //  u_metric='N';    
-  }
-  useMilitary = (json["mil"]=="Y");
-  humiM = json["hum"];
+  presM = atoi(json["bar"]);
+//  if (json["tmpU"]=="C") {
+// //   u_metric='Y';
+//  } else {
+//  //  u_metric='N';    
+//  }
+//  useMilitary = (json["mil"][0]=='Y');
+  humiM = atoi(json["hum"]);
   strcpy(b,json["dir"]);
   wind_direction = String(b);
 
@@ -221,19 +218,6 @@ void parseLoop() {
   
   isParsing = false;
   Serial.println(F("Done parsing..."));
-}
-
-String StringPieceAsString(const String &line, const String &word, const String &term, byte size) {
-  int bT = line.indexOf(word);
-  if (bT > 0) {
-    int bT2 = line.indexOf (term, bT + size);
-    return line.substring (bT + size, bT2);
-  }
-  return "";
-}
-
-int StringPieceAsInt(const String &line, const String &word, const String &term, byte size) {
-  return StringPieceAsString(line, word, term, size).toInt();
 }
 
 
@@ -374,8 +358,13 @@ void updateDate() {
   TFDrawText(&display, txt, 13, 26, display.color565(51, 0, 26));
 }
 
+int i = 0;
 void loop() {
 
+  i++;
+  if (i%100 == 0) {
+    Serial.println(i);
+  }
   readLoop();
   parseLoop();
   
