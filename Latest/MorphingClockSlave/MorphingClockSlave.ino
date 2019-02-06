@@ -103,22 +103,24 @@ bool useMilitary = false;
 bool isAMFlag = true;
 bool digit5Hidden = false;
 int tempM = -10000;
-int tempTMP = 0;
+uint16_t tempMC=cc_gry;
+int tempTMP = -10000;
+uint16_t tempTMPC=cc_gry;
 int prevTempTMP = 0;
-float f1=0.0;
-float f2=0.0;
-float f3=0.0;
 int presM = -10000;
+uint16_t presMC=cc_gry;
 int humiM = -10000;
+uint16_t humiMC=cc_gry;
 int condM = -1;  //-1 - undefined, 0 - unk, 1 - sunny, 2 - cloudy, 3 - overcast, 4 - rainy, 5 - thunders, 6 - snow
 String condS = "";
 int wind_speed;
 int wind_nr;
 String wind_direction = "";
+uint16_t wndC=cc_gry;
 int gust = 0;
 int xo;
 int yo;
-char u_metric[] = "N";
+char u_metric[3] = "N";
 
 void setup() {
   Serial.begin(9600);
@@ -167,14 +169,17 @@ void readLoop() {
       isReading = true;
       isParsing = false;
       Serial.println(F("Start receive..."));
+      strcpy(recBuf,"");
     }
     if (isReading && c>=32 && c<=126 && c!='>' && c!='<') {
       strncat(recBuf,&c,1);
+      Serial.print(c);
     }
     if (c=='<') {
       isReading = false;
       isParsing = true;
       parseIndex = 0;
+      Serial.println();
       Serial.println(F("Stop receive..."));
       Serial.print(F("Data:"));
       Serial.println(recBuf);
@@ -187,9 +192,10 @@ void parseLoop() {
     return;  
   }
 
-  Serial.println(F("Start parsing..."));
+  Serial.print(F("Start parsing..."));
+  Serial.println(recBuf);
   
-  StaticJsonBuffer<200> jsonBuffer;
+  StaticJsonBuffer<300> jsonBuffer;
   JsonObject& json = jsonBuffer.parseObject(recBuf);
 
   if (!json.success()) {
@@ -201,39 +207,34 @@ void parseLoop() {
   char b[20];
 
   tempTMP = atoi(json["itmp"]);
+  tempTMPC = atoi(json["itmpC"]);
   tempM = atoi(json["otmp"]);
+  tempMC = atoi(json["otmpC"]);
   presM = atoi(json["bar"]);
-//  if (json["tmpU"]=="C") {
-// //   u_metric='Y';
-//  } else {
-//  //  u_metric='N';    
-//  }
-//  useMilitary = (json["mil"][0]=='Y');
+  presMC = atoi(json["barC"]);
+  strcpy(b,json["tmpU"]);
+  strcpy(u_metric,b);
+  strcpy(b,json["mil"]);
+  useMilitary = (strcmp(b,"Y")==0);
   humiM = atoi(json["hum"]);
+  humiMC = atoi(json["humC"]);
   strcpy(b,json["dir"]);
   wind_direction = String(b);
-
+  wndC = atoi(json["wndC"]);
   epoch = atoi(json["tim"]);
   setTime(epoch);
   
   isParsing = false;
   Serial.println(F("Done parsing..."));
+  strcpy(recBuf,"");
+  draw_weather();
 }
 
 
 void draw_weather () {
-//  int cc_wht = display.color565 (255, 255, 255);
-//  int cc_red = display.color565 (255, 0, 0);
-//  int cc_org = display.color565 (255, 165, 0);
-//  int cc_grn = display.color565 (0, 255, 0);
-//  int cc_blu = display.color565 (0, 128, 255);
-//  int cc_ylw = display.color565 (255, 255, 0);
-//  int cc_gry = display.color565 (128, 128, 128);
-//  int cc_dgr = display.color565 (30, 30, 30);
-//  int cc_lblu = display.color565 (0, 255, 255);
-//  int cc_ppl = display.color565 (255, 0, 255);
   int value = 0;
   Serial.println (F("showing the weather"));
+  String lstr;
   xo = 0;
   yo = 1;
   TFDrawText (&display, String(F("                   ")), xo, yo, cc_dgr);
@@ -242,113 +243,66 @@ void draw_weather () {
     //TFDrawText (&display, String("NO WEATHER DATA"), xo, yo, cc_dgr);
     Serial.println (F("!no weather data available"));
   } else {
-    //weather below the clock
-    //-temperature
-    int lcc = cc_red;
-    if (*u_metric == 'Y') {
-      if (tempM >= 30)
-        lcc = cc_red;
-      if (tempM >= 25)
-        lcc = cc_org;
-      if (tempM < 25)
-        lcc = cc_ylw;
-      if (tempM < 20)
-        lcc = cc_grn;
-      if (tempM < 15)
-        lcc = cc_blu;
-      if (tempM < 10)
-        lcc = cc_lblu;
-      if (tempM < 1)
-        lcc = cc_wht;
-    } else {
-      //F
-      if (tempM < 79)
-        lcc = cc_grn;
-      if (tempM < 64)
-        lcc = cc_blu;
-      if (tempM < 43)
-        lcc = cc_wht;
-    }
-    String lstr = String (tempM) + String((*u_metric == 'Y') ? "C" : "F") + "/" + String(tempTMP) + String((*u_metric == 'Y') ? "C" : "F");
-    Serial.print (F("temperature: "));
+    lstr = String (tempM) + String((*u_metric == 'Y') ? "C" : "F");
+    Serial.print (F("o temp: "));
     Serial.println (lstr);
-    TFDrawText (&display, lstr, xo, yo, lcc);
-    //weather conditions
-    //-humidity
-    lcc = cc_red;
-    if (humiM < 80)
-      lcc = cc_org;
-    if (humiM < 60)
-      lcc = cc_grn;
-    if (humiM < 40)
-      lcc = cc_blu;
-    if (humiM < 20)
-      lcc = cc_wht;
-    lstr = String (humiM);// + "%";
-    xo = 9 * TF_COLS;
-    TFDrawText (&display, lstr, xo, yo, lcc);
-    //-pressure
-    lstr = String (presM);
-    xo = 12 * TF_COLS;
-    if (presM < 1000) {
-      xo = 13 * TF_COLS;
-    }
-    TFDrawText (&display, lstr, xo, yo, cc_gry);
-    //draw wind speed and direction
-    if (wind_speed > -10000) {
-      xo = 0 * TF_COLS;
-      yo = 26;
-      TFDrawText (&display, "   ", xo, yo, 0);
-      //if there is gust, draw gust instead of wind speed
-      if (gust > wind_speed) {
-        value = gust;
-      } else {
-        value = wind_speed;
-      }
-      //if there is gust, draw gust instead of wind speed
-      lstr = String (value) + String((gust > wind_speed) ? "'" : "");
-      int ct = cc_wht;
-      if (value >= 1) {
-        ct = cc_grn;
-      }
-      if (value >= 4) {
-        ct = cc_lblu;
-      }
-      if (value >= 8) {
-        ct = cc_blu;
-      }
-      if (value >= 12) {
-        ct = cc_ylw;
-      }
-      if (value >= 16) {
-        ct = cc_org;
-      }
-      if (value >= 20) {
-        ct = cc_red;
-      }
-      Serial.print (F("wind_speed: "));
-      Serial.println (lstr);
-      TFDrawText (&display, lstr, xo, yo, ct);
-    }
-    if (wind_direction)
-    {
-      xo = 14 * TF_COLS;
-      yo = 26;
-      TFDrawText (&display, "   ", xo, yo, 0);
-      if (wind_direction.length() == 1) {
-        xo = 15 * TF_COLS;
-      }
+    TFDrawText (&display, lstr, xo, yo, tempMC);
 
-      lstr = String (wind_direction);
-
-      Serial.print (F("wind_direction: "));
-      Serial.println (lstr);
-      TFDrawText (&display, lstr, xo, yo, cc_gry);
-    }
-
-    //weather conditions
-    //draw_weather_conditions ();
+    xo=xo+(lstr.length()*TF_COLS);
+    TFDrawText (&display, String("/"), xo, yo, cc_gry);
+    lstr = String(tempTMP) + String((*u_metric == 'Y') ? "C" : "F");
+    xo=xo+(1*TF_COLS);
+    Serial.print (F("i temp: "));
+    Serial.println (lstr);
+    TFDrawText (&display, lstr, xo, yo, tempTMPC);
+  }  
+  
+  //weather conditions
+  //-humidity
+  lstr = String (humiM)+ "%";
+  xo = 8 * TF_COLS;
+  TFDrawText (&display, lstr, xo, yo, humiMC);
+    
+  //-pressure
+  lstr = String (presM);
+  xo = 12 * TF_COLS;
+  if (presM < 1000) {
+    xo = 13 * TF_COLS;
   }
+  TFDrawText (&display, lstr, xo, yo, presMC);
+
+  //draw wind speed and direction
+  if (wind_speed > -10000) {
+    xo = 0 * TF_COLS;
+    yo = 26;
+    TFDrawText (&display, "   ", xo, yo, 0);
+    //if there is gust, draw gust instead of wind speed
+    if (gust > wind_speed) {
+      value = gust;
+    } else {
+      value = wind_speed;
+    }
+    //if there is gust, draw gust instead of wind speed
+    lstr = String (value) + String((gust > wind_speed) ? "'" : "");
+    Serial.print (F("wind_speed: "));
+    Serial.println (lstr);
+    TFDrawText (&display, lstr, xo, yo,wndC );
+  }
+  if (wind_direction)
+  {
+    xo = 14 * TF_COLS;
+    yo = 26;
+    TFDrawText (&display, "   ", xo, yo, 0);
+    if (wind_direction.length() == 1) {
+      xo = 15 * TF_COLS;
+    }
+
+    lstr = String (wind_direction);
+
+    Serial.print (F("wind_direction: "));
+    Serial.println (lstr);
+    TFDrawText (&display, lstr, xo, yo, cc_gry);
+  }  
 }
 
 void updateDate() {
@@ -358,22 +312,13 @@ void updateDate() {
   TFDrawText(&display, txt, 13, 26, display.color565(51, 0, 26));
 }
 
-int i = 0;
 void loop() {
 
-  i++;
-  if (i%100 == 0) {
-    Serial.println(i);
-  }
   readLoop();
   parseLoop();
-  
-  //Serial.print("GetCurrentTime returned epoch = ");
-  //Serial.println(epoch);
-//  if (epoch != 0) {
-//    ntpClient.PrintTime();
-//  }
 
+  epoch = now();
+    
   if (epoch != prevEpoch) {
     int hh = hour(epoch); //ntpClient.GetHours();
     int mm = minute(epoch); //ntpClient.GetMinutes();
@@ -431,13 +376,13 @@ void loop() {
         if (ss == 30 && ((mm % 5) == 0)) {
           //getWeather ();
         }
-        if ((ss == 15) || (ss == 45)) {
-          tempTMP = round(f3);
-          if (tempTMP!=prevTempTMP) {
-            draw_weather();
-          }
-          prevTempTMP = tempTMP;
-        }
+  //      if ((ss == 15) || (ss == 45)) {
+//          tempTMP = round(f3);
+ //         if (tempTMP!=prevTempTMP) {
+   //         draw_weather();
+     //     }
+       //   prevTempTMP = tempTMP;
+//        }
       }
 
       if (mm != prevmm) {

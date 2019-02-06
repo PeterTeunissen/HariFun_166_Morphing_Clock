@@ -72,7 +72,7 @@ int StringPieceAsInt(const String &line, const String &word, const String &term,
 bool isAMFlag = true;
 bool digit5Hidden = false;
 
-String location = "Phoenixville,US"; //e.g. "Paris,FR"
+//String location = "Phoenixville,US"; //e.g. "Paris,FR"
 char server[]   = "api.openweathermap.org";
 WiFiClient client;
 String apiKey = "aec6c8810510cce7b0ee8deca174c79a";
@@ -148,7 +148,7 @@ void getWeather () {
     Serial.println (F("connected."));
     // Make a HTTP request:
     client.print ("GET /data/2.5/weather?");
-    client.print ("q=" + location);
+    client.print (String("q=") + String("Phoenixville,US"));  // location
     client.print ("&appid=" + apiKey);
     client.print ("&cnt=1");
     //    (*u_metric=='Y')?client.println ("&units=metric"):
@@ -353,6 +353,8 @@ void drawWeather () {
   json["tmpU"] = String((*u_metric == 'Y') ? "C" : "F");
   json["mil"] = String((ntpClient.useMilitary()?"Y":"N"));
   json["bar"] = presM;
+  json["barC"] = cc_gry;
+  
 //  json["wnd"] = wind_speed; 
 //  json["gst"] = gust;
   json["dir"] = wind_direction;

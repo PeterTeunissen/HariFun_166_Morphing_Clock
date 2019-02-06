@@ -39,11 +39,16 @@ unsigned long nextEpochTimeStamp; // What was millis() when we asked server for 
 unsigned long currentTime;
 char timezone[5] = "-5";
 char military[3] = "Y"; // 24 hour mode? Y/N
+char metric[3] = "N"; // Metric Units? Y/N
+char location[30] = "Phoenixville,US";
+char timeZoneName[20] = "America/New_York";
+char timeAPIKey[20] = "";
+char weatherAPIKey[20] = "";
 
 const char* ntpServerName = "time.google.com"; // NTP google server
 IPAddress timeServerIP; // time.nist.gov NTP server address
 const int NTP_PACKET_SIZE = 48; // NTP time stamp is in the first 48 bytes of the message
-byte packetBuffer[ NTP_PACKET_SIZE]; //buffer to hold incoming and outgoing packets
+byte packetBuffer[NTP_PACKET_SIZE]; //buffer to hold incoming and outgoing packets
 WiFiUDP udp; // A UDP instance to let us send and receive packets over UDP
 unsigned int localPort = 2390;      // local port to listen for UDP packets
 
@@ -89,6 +94,11 @@ bool loadConfig() {
 
   strcpy(timezone, json["timezone"]);
   strcpy(military, json["military"]);
+  strcpy(metric, json["metric"]);
+  strcpy(location, json["location"]);
+  strcpy(timeZoneName, json["timeZoneName"]);
+  strcpy(timeAPIKey, json["timeAPIKey"]);
+  strcpy(weatherAPIKey, json["weatherAPIKey"]);
 
   Serial.print("LC timezone=");
   Serial.println(timezone);
@@ -96,6 +106,21 @@ bool loadConfig() {
   Serial.print("LC military=");
   Serial.println(military);
   
+  Serial.print("LC metric=");
+  Serial.println(metric);
+
+  Serial.print("LC location=");
+  Serial.println(location);
+
+  Serial.print("LC timeZoneName=");
+  Serial.println(timeZoneName);
+
+  Serial.print("LC timeAPIKey=");
+  Serial.println(timeAPIKey);
+
+  Serial.print("LC weatherAPIKey=");
+  Serial.println(weatherAPIKey);
+
   return true;
 }
 
@@ -104,7 +129,12 @@ bool saveConfig() {
   JsonObject& json = jsonBuffer.createObject();
   json["timezone"] = timezone;
   json["military"] = military;
-
+  json["metric"] = metric;
+  json["location"] = location;
+  json["timeZoneName"] = timeZoneName;
+  json["timeAPIKey"] = timeAPIKey;
+  json["weatherAPIKey"] = weatherAPIKey;
+  
   File configFile = SPIFFS.open("/config.json", "w");
   if (!configFile) {
     Serial.println("Failed to open config file for writing");
@@ -117,7 +147,23 @@ bool saveConfig() {
   Serial.print("SC military=");
   Serial.println(military);
 
+  Serial.print("SC metric=");
+  Serial.println(metric);
+
+  Serial.print("SC location=");
+  Serial.println(location);
+
+  Serial.print("SC timeZoneName=");
+  Serial.println(timeZoneName);
+
+  Serial.print("SC timeAPIKey=");
+  Serial.println(timeAPIKey);
+
+  Serial.print("SC weatherAPIKey=");
+  Serial.println(weatherAPIKey);
+
   json.printTo(configFile);
+
   return true;
 }
 
@@ -134,59 +180,36 @@ void NTPClient::Setup()
     Serial.println("Failed to mount FS");
     return;
   }
-  loadConfig();
 
-  //-- Display --
- // _display = d;
-//  _display->fillScreen(_display->color565(0, 0, 0));
-//  _display->setTextColor(_display->color565(0, 0, 255));
-  //_display->setFont(&FreeMono9pt7b);
-  //_display->setTextSize(1);
-  const byte row0 = 2+0*10;
-  const byte row1 = 2+1*10;
-  const byte row2 = 2+2*10;
+//  SPIFFS.format();
+  
+  loadConfig();
 
   //-- WiFiManager --
   //Local intialization. Once its business is done, there is no need to keep it around
   WiFiManager wifiManager;
   wifiManager.setSaveConfigCallback(saveConfigCallback);
-  WiFiManagerParameter timeZoneParameter("timeZone", "GMT Offset(hours)", timezone, 5); 
-  wifiManager.addParameter(&timeZoneParameter);
+  WiFiManagerParameter timeZoneNameParameter("timeZone", "GMT Offset(hours)", timezone, 5); 
+  wifiManager.addParameter(&timeZoneNameParameter);
   WiFiManagerParameter militaryParameter("military", "24Hr (Y/N)", military, 3); 
   wifiManager.addParameter(&militaryParameter);
-
-  // Only pin left is my analog pin to initiate a forced config. Holding it to +3v3 during startup
-  // will move it into config mode.
-//  int sensorValue = analogRead(A0);
+  WiFiManagerParameter metricParameter("metric", "Metric (Y/N)", metric, 3); 
+  wifiManager.addParameter(&metricParameter);
+  WiFiManagerParameter weatherLocationParameter("location", "Location", location, 30); 
+  wifiManager.addParameter(&weatherLocationParameter);
+  WiFiManagerParameter weatherAPIParameter("weatherAPIKey", "Weather API Key", weatherAPIKey, 20); 
+  wifiManager.addParameter(&weatherAPIParameter);
+  WiFiManagerParameter timeAPIParameter("timeAPIKey", "Time API Key", timeAPIKey, 20); 
+  wifiManager.addParameter(&timeAPIParameter);
   
   //-- Double-Reset --
-//  if (drd.detectDoubleReset() || (sensorValue>255) ) {
   if (drd.detectDoubleReset()) {
     Serial.println("Double Reset Detected");
     digitalWrite(LED_BUILTIN, LOW);
-
-//    _display->setCursor(1, row0);     _display->print("AP");
-//    _display->setCursor(1+10, row0);    _display->print(":");
-//    _display->setCursor(1+10+5, row0);  _display->print(wifiManagerAPName);
-//
-//    _display->setCursor(1, row1);     _display->print("Pw");
-//    _display->setCursor(1+10, row1);    _display->print(":");
-//    _display->setCursor(1+10+5, row1);  _display->print(wifiManagerAPPassword);
-//
-//    _display->setCursor(1, row2); _display->print("192");
-//    _display->setCursor(1+3*6 -1, row2); _display->print(".168");
-//    _display->setCursor(1+3*6 -1 + 5+ 3*6, row2); _display->print(".4");
-//    _display->setCursor(1+3*6 -1 + 5+ 3*6 + 5 + 6, row2); _display->print(".1");
-
     wifiManager.startConfigPortal(wifiManagerAPName, wifiManagerAPPassword);
-
-//    _display->fillScreen(_display->color565(0, 0, 0));
   } else {
     Serial.println("No Double Reset Detected");
     digitalWrite(LED_BUILTIN, HIGH);
-
-//    _display->setCursor(2, row1);
-//    _display->print("Connecting");
 
     //fetches ssid and pass from eeprom and tries to connect
     //if it does not connect it starts an access point with the specified name wifiManagerAPName
@@ -197,9 +220,6 @@ void NTPClient::Setup()
   drd.stop();
 
   //-- Status --
-//  _display->fillScreen(_display->color565(0, 0, 0));
-//  _display->setCursor(2, row0);
-//  _display->print("Connected!");
   Serial.println("WiFi connected");
   
   Serial.println("IP address: ");
@@ -211,16 +231,16 @@ void NTPClient::Setup()
   Serial.println(udp.localPort());
 
   //-- Timezone --
-  strcpy(timezone,timeZoneParameter.getValue());
-//  _display->setCursor(2, row1);
-//  _display->print("Zone:");
-//  _display->print(timezone);
+  strcpy(timezone,timeZoneNameParameter.getValue());
   
   //-- Military --
   strcpy(military,militaryParameter.getValue());
-//  _display->setCursor(2, row2);
-//  _display->print("24Hr:");
-//  _display->print(military);
+  
+  strcpy(metric,metricParameter.getValue());
+  strcpy(location,weatherLocationParameter.getValue());
+  strcpy(timeZoneName,timeZoneNameParameter.getValue());
+  strcpy(timeAPIKey,timeAPIParameter.getValue());
+  strcpy(weatherAPIKey,weatherAPIParameter.getValue());
 
   if (shouldSaveConfig) {
     saveConfig();
